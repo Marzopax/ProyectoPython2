@@ -7,8 +7,8 @@ Este proyecto es una aplicación web interactiva diseñada para automatizar la g
 La aplicación cumple el rol de un **Asistente de Triaje Automatizado**. Su objetivo principal es recibir un volumen de datos crudos (en formato CSV) ingresados por un usuario, aplicarles un riguroso proceso de preprocesamiento estadístico para eliminar ruidos o redundancias, y posteriormente utilizar un modelo de lenguaje (LLM) para categorizar la naturaleza de cada ticket en una de tres áreas de resolución: **Hardware**, **Software** o **Redes**.
 
 Clases del Curso Aplicadas e Integradas:
-**Clase 2 (Eje Pandas - Limpieza de Datos): Carga dinámica de datasets considerando excepciones de codificación (`utf-8` / `latin1`). Implementa la remoción de registros nulos mediante `dropna()`, la eliminación de duplicados redundantes con `drop_duplicates()` y la normalización de cadenas de texto empleando transformaciones de tipo y remoción de espacios con `str.strip()`.
-**Clase 6 (Eje LLMs - Inferencia Local): Integración directa del pipeline de Hugging Face (`zero-shot-classification`) usando el modelo de red neuronal `facebook/bart-large-mnli`. Realiza la inferencia local sobre el DataFrame limpio por Pandas, prediciendo la categoría más probable sin requerir peticiones a APIs externas propensas a bloqueos de red.
+Clase 2 (Eje Pandas - Limpieza de Datos): Carga dinámica de datasets considerando excepciones de codificación (`utf-8` / `latin1`). Implementa la remoción de registros nulos mediante `dropna()`, la eliminación de duplicados redundantes con `drop_duplicates()` y la normalización de cadenas de texto empleando transformaciones de tipo y remoción de espacios con `str.strip()`.
+Clase 6 (Eje LLMs - Inferencia Local): Integración directa del pipeline de Hugging Face (`zero-shot-classification`) usando el modelo de red neuronal `facebook/bart-large-mnli`. Realiza la inferencia local sobre el DataFrame limpio por Pandas, prediciendo la categoría más probable sin requerir peticiones a APIs externas propensas a bloqueos de red.
 
 🚀 Guía de Uso Paso a Paso
 

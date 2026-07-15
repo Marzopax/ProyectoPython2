@@ -6,7 +6,7 @@ from transformers import pipeline
 # 1. Configuración del modelo local
 @st.cache_resource
 def cargar_modelo():
-    # Usamos el mismo modelo robusto local
+    # Usamos el modelo robusto local
     return pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
 
 # Cargamos el clasificador
@@ -34,7 +34,7 @@ if uploaded_file is not None:
         except:
             df = pd.read_csv(uploaded_file, encoding='latin1')
         
-        # Filtros de limpieza
+        # Filtros de limpieza inicial
         target_col = 'descripcion'
         if target_col in df.columns:
             df.dropna(subset=[target_col], inplace=True) # Elimina filas nulas
@@ -52,32 +52,40 @@ if uploaded_file is not None:
                         res = classifier(texto, CATEGORIAS_IA)
                         etiqueta_ganadora = res['labels'][0] # La opción con mayor probabilidad
                         
-                        # Mapeo de la etiqueta de la IA a la salida de tu sistema
+                        # Mapeo de la etiqueta de la IA a su categoría correspondiente
                         if "No relacionado" in etiqueta_ganadora:
-                            return "Inválido"
+                            return "Descartar"
                         elif "Hardware" in etiqueta_ganadora:
                             return "Depto. Hardware"
                         elif "Software" in etiqueta_ganadora:
                             return "Depto. Software"
                         elif "Redes" in etiqueta_ganadora:
                             return "Depto. Redes"
-                        return "Inválido"
+                        return "Descartar"
 
                     # Aplicación de la técnica IA sobre el DataFrame
                     df['Area_Asignada'] = df[target_col].apply(clasificar_texto)
                     
-                    st.success("¡Análisis completado!")
-                    st.dataframe(df)
+                    # --- FILTRADO CON PANDAS (Remover lo que no sirve) ---
+                    # Eliminamos todas las filas donde la IA determinó que hay que "Descartar"
+                    df = df[df['Area_Asignada'] != "Descartar"]
                     
-                    # Descarga de resultados en UTF-8 (con BOM para compatibilidad con Excel)
-                    csv_buffer = io.BytesIO()
-                    df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
-                    st.download_button(
-                        "📥 Descargar CSV Clasificado",
-                        csv_buffer.getvalue(),
-                        "tickets_soporte_ia.csv",
-                        "text/csv; charset=utf-8",
-                    )
+                    st.success("¡Análisis completado! Se han filtrado y eliminado los registros no relacionados.")
+                    
+                    if not df.empty:
+                        st.dataframe(df)
+                        
+                        # Descarga de resultados en UTF-8 (con BOM para compatibilidad con Excel)
+                        csv_buffer = io.BytesIO()
+                        df.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
+                        st.download_button(
+                            "📥 Descargar CSV Clasificado",
+                            csv_buffer.getvalue(),
+                            "tickets_soporte_ia.csv",
+                            "text/csv; charset=utf-8",
+                        )
+                    else:
+                        st.warning("⚠️ Todas las filas del archivo subido fueron descartadas por no estar relacionadas a informática.")
         else:
             st.error(f"El archivo debe contener una columna llamada '{target_col}'.")
             

@@ -8,18 +8,15 @@ from transformers import pipeline
 
 @st.cache_resource
 def cargar_modelo():
-    # @st.cache_resource evita recargar el modelo en cada interacción.
     # mDeBERTa-v3-base-mnli-xnli: modelo NLI multilingüe usado para zero-shot.
     return pipeline("zero-shot-classification", model="MoritzLaurer/mDeBERTa-v3-base-mnli-xnli")
 
 classifier = cargar_modelo()
 
 # ============================================================
-# CATEGORÍAS DE CLASIFICACIÓN (Modificado)
+# CATEGORÍAS DE CLASIFICACIÓN
 # ============================================================
 
-# Añadimos "Invalido" con una descripción semántica fuerte para capturar
-# todo aquello ajeno a los tres departamentos principales de informática.
 CATEGORIAS_DESC = {
     "Hardware": "Falla física de un equipo o dispositivo: impresora, computadora, monitor, teclado, mouse, cable, "
                 "escáner o periférico que no enciende, no responde, hace ruido, se traba o está roto físicamente",
@@ -31,8 +28,8 @@ CATEGORIAS_DESC = {
                 "computadoras, programas o redes (por ejemplo: comentarios sobre comida, compras de oficina, mobiliario, "
                 "picaportes rotos, charlas generales o frases sin sentido)"
 }
-CATEGORIAS_LABELS = list(CATEGORIAS_DESC.keys())       # Nombres cortos (para mostrar en el resultado)
-CATEGORIAS_HIPOTESIS = list(CATEGORIAS_DESC.values())  # Descripciones largas (para alimentar al modelo)
+CATEGORIAS_LABELS = list(CATEGORIAS_DESC.keys())
+CATEGORIAS_HIPOTESIS = list(CATEGORIAS_DESC.values())
 
 # ============================================================
 # INTERFAZ: TÍTULO Y DESCRIPCIÓN
@@ -40,7 +37,7 @@ CATEGORIAS_HIPOTESIS = list(CATEGORIAS_DESC.values())  # Descripciones largas (p
 
 st.title("Sistema Inteligente de Soporte")
 st.write("Subí un CSV, el sistema lo limpiará y organizará.")
-st.write("Con los sliders podés controlar los umbrales y longitud para filtrar descripción.")
+st.write("Con los sliders podés controlar los umbrales y longitud para filtrar descripciones basura.")
 
 # ============================================================
 # SLIDERS DE CALIBRACIÓN
@@ -51,20 +48,20 @@ col1, col2, col3 = st.columns(3)
 with col1:
     UMBRAL_CONFIANZA = st.slider(
         "Umbral confianza (normales)",
-        min_value=0.0, max_value=1.0, value=0.4, step=0.05,
+        min_value=0.0, max_value=1.0, value=0.35, step=0.05,
         help="Aplica a descripciones iguales o más largas que el umbral de longitud."
     )
 with col2:
     UMBRAL_CORTO = st.slider(
         "Umbral confianza (cortas)",
-        min_value=0.0, max_value=1.0, value=0.25, step=0.05,
+        min_value=0.0, max_value=1.0, value=0.20, step=0.05,
         help="Aplica a descripciones más cortas que el umbral de longitud."
     )
 with col3:
     LONGITUD_CORTA = st.slider(
         "Umbral de longitud (caracteres)",
         min_value=0, max_value=50, value=10, step=1,
-        help="Descripciones con menos caracteres que este valor se consideran 'cortas' y usan el umbral de confianza correspondiente."
+        help="Descripciones con menos de este valor se consideran 'cortas'."
     )
 
 # ============================================================
@@ -137,21 +134,15 @@ if uploaded_file is not None:
             df_clasificado = st.session_state['df_clasificado']
             total_antes = len(df_clasificado)
 
-            # 1. Filtro por umbrales de confianza configurados en sliders
+            # Filtro por umbrales de confianza para descartar ruido absoluto
             es_corta = df_clasificado['Longitud'] < LONGITUD_CORTA
             pasa_corta = es_corta & (df_clasificado['Confianza'] >= UMBRAL_CORTO)
             pasa_normal = ~es_corta & (df_clasificado['Confianza'] >= UMBRAL_CONFIANZA)
 
             df_filtrado = df_clasificado[pasa_corta | pasa_normal].copy()
-            
-            # 2. Forzar que cualquier registro que haya caído en "Invalido" por la IA
-            # o que no pertenezca a Hardware, Software o Redes se marque como Invalido.
-            # (Adicionalmente, si el score de confianza es demasiado bajo, también podemos reasignarlo)
-            df_filtrado.loc[~df_filtrado['Area_Asignada'].isin(["Hardware", "Software", "Redes"]), 'Area_Asignada'] = "Invalido"
-
             descartados = total_antes - len(df_filtrado)
 
-            st.success(f"¡Análisis completado! {descartados} registro(s) descartado(s) por baja confianza.")
+            st.success(f"¡Análisis completado! Se descartaron {descartados} registro(s) por confianza nula.")
             st.dataframe(df_filtrado)
 
             csv = df_filtrado.to_csv(index=False).encode('utf-8-sig')

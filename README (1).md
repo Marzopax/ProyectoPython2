@@ -1,8 +1,8 @@
-# 🎫 Sistema Inteligente de Soporte (Procesamiento Local)
+# Sistema Inteligente de Soporte (Procesamiento Local)
 
 Clasifica automáticamente requerimientos de soporte técnico (Hardware, Software, Redes) usando IA local, sin depender de APIs externas. Filtra descripciones irrelevantes usando umbrales de confianza configurables.
 
-## 🔗 Deploy
+## Deploy
 
 App en vivo: **[proyectopython2-dzzfrfgbsifwprseca4yd4.streamlit.app](https://proyectopython2-dzzfrfgbsifwprseca4yd4.streamlit.app)**
 

@@ -13,22 +13,19 @@ def cargar_modelo():
 classifier = cargar_modelo()
 
 # ============================================================
-# CATEGORÍAS DE CLASIFICACIÓN
+# CATEGORÍAS DE CLASIFICACIÓN (Optimizadas para Zero-Shot)
 # ============================================================
 
-CATEGORIAS_DESC = {
-    "Hardware": "Falla física de un equipo o dispositivo: impresora, computadora, monitor, teclado, mouse, cable, "
-                "escáner o periférico que no enciende, no responde, hace ruido, se traba o está roto físicamente",
-    "Software": "Falla de un programa o aplicación instalada: error al abrir, se cierra solo, licencia vencida, "
-                "actualización fallida, mensaje de error en pantalla, problema al instalar un programa",
-    "Otros": "Cualquier otro tema, falla de redes, conectividad a internet, saludos, consultas administrativas, "
-             "mobiliario, o texto que no sea ni hardware ni software."
-}
-CATEGORIAS_LABELS = list(CATEGORIAS_DESC.keys())
-CATEGORIAS_HIPOTESIS = list(CATEGORIAS_DESC.values())
+# Se usan etiquetas cortas para que el modelo no se sature de texto.
+# La opción "Otros (No Informática)" actuará como trampa para los tickets basura.
+CATEGORIAS_LABELS = [
+    "Falla de Hardware (Equipos físicos)", 
+    "Falla de Software (Programas)", 
+    "Otros (No Informática / Infraestructura / Redes)"
+]
 
 # ============================================================
-# INTERFAZ: TÍTULO Y DESCRIPCIÓN
+# INTERFAZ
 # ============================================================
 
 st.title("Sistema Inteligente de Soporte (Filtro Estricto)")
@@ -48,7 +45,7 @@ with col3:
     LONGITUD_CORTA = st.slider("Umbral de longitud (caracteres)", 0, 50, 10, 1)
 
 # ============================================================
-# CARGA DEL ARCHIVO CSV
+# PROCESAMIENTO
 # ============================================================
 
 def reparar_mojibake(texto):
@@ -85,16 +82,21 @@ if uploaded_file is not None:
                     def clasificar_texto(texto):
                         res = classifier(
                             texto,
-                            CATEGORIAS_HIPOTESIS,
-                            multi_label=True,
+                            CATEGORIAS_LABELS,
+                            multi_label=False, # CORRECCIÓN: Obliga a las categorías a competir
                             hypothesis_template="Este reclamo de soporte técnico trata sobre: {}."
                         )
                         mejor_hipotesis = res['labels'][0]
                         mejor_score = res['scores'][0]
                         
-                        idx = CATEGORIAS_HIPOTESIS.index(mejor_hipotesis)
-                        categoria = CATEGORIAS_LABELS[idx]
-                        
+                        # Simplificación para el DataFrame
+                        if "Hardware" in mejor_hipotesis:
+                            categoria = "Hardware"
+                        elif "Software" in mejor_hipotesis:
+                            categoria = "Software"
+                        else:
+                            categoria = "Otros"
+                            
                         return categoria, mejor_score
 
                     resultados = df[target_col].apply(clasificar_texto)
@@ -116,17 +118,15 @@ if uploaded_file is not None:
             df_filtrado = df_clasificado[pasa_corta | pasa_normal].copy()
 
             # 2. ELIMINACIÓN ESTRICTA CON PANDAS
-            # Conservamos únicamente las filas donde 'Area_Asignada' sea Hardware o Software.
-            # Todo lo clasificado como "Otros" desaparece de la tabla.
+            # Conservamos únicamente Hardware y Software. Lo que caiga en "Otros" desaparece.
             df_filtrado = df_filtrado[df_filtrado['Area_Asignada'].isin(["Hardware", "Software"])].copy()
 
             descartados = total_antes - len(df_filtrado)
 
-            st.success(f"¡Filtrado completado! Se descartaron {descartados} registro(s) por no ser Hardware o Software, o por baja confianza.")
+            st.success(f"¡Filtrado completado! Se descartaron {descartados} registro(s) ajenos a los departamentos principales.")
             
             if not df_filtrado.empty:
                 st.dataframe(df_filtrado[['descripcion', 'Area_Asignada', 'Confianza']])
-                
                 csv = df_filtrado.to_csv(index=False).encode('utf-8-sig')
                 st.download_button("📥 Descargar CSV Filtrado", csv, "tickets_filtrados.csv", "text/csv")
             else:

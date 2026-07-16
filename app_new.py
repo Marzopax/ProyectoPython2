@@ -13,19 +13,16 @@ def cargar_modelo():
 classifier = cargar_modelo()
 
 # ============================================================
-# CATEGORÍAS DE CLASIFICACIÓN (Lenguaje Natural)
+# CATEGORÍAS DE CLASIFICACIÓN (Equilibrio Zero-Shot)
 # ============================================================
 
-# Usamos frases descriptivas claras. Esto evita que el modelo 
-# confunda "Hardware" con ferretería/plomería.
-CATEGORIAS_DESC = {
-    "Hardware": "un problema físico con una computadora, teclado, monitor, impresora o equipo informático.",
-    "Software": "un error en un programa, aplicación, sistema operativo, base de datos o licencia.",
-    "Otros": "un problema de internet, wifi, cables de red, o temas de mantenimiento general como plomería, limpieza o infraestructura edilicia."
-}
-
-CATEGORIAS_LABELS = list(CATEGORIAS_DESC.keys())
-CATEGORIAS_HIPOTESIS = list(CATEGORIAS_DESC.values())
+# Etiquetas de longitud media: precisas, sin oraciones largas, 
+# pero con el contexto necesario entre paréntesis.
+CATEGORIAS_LABELS = [
+    "Hardware informático (computadoras, monitores, impresoras, teclados)",
+    "Software (sistemas, programas, aplicaciones, errores en pantalla)",
+    "Otros temas (redes, internet, mantenimiento general, plomería)"
+]
 
 # ============================================================
 # INTERFAZ
@@ -41,9 +38,9 @@ st.write("Subí un CSV. El sistema conservará ÚNICAMENTE los requerimientos de
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    UMBRAL_CONFIANZA = st.slider("Umbral confianza (normales)", 0.0, 1.0, 0.35, 0.05)
+    UMBRAL_CONFIANZA = st.slider("Umbral confianza (normales)", 0.0, 1.0, 0.40, 0.05)
 with col2:
-    UMBRAL_CORTO = st.slider("Umbral confianza (cortas)", 0.0, 1.0, 0.20, 0.05)
+    UMBRAL_CORTO = st.slider("Umbral confianza (cortas)", 0.0, 1.0, 0.25, 0.05)
 with col3:
     LONGITUD_CORTA = st.slider("Umbral de longitud (caracteres)", 0, 50, 10, 1)
 
@@ -85,16 +82,20 @@ if uploaded_file is not None:
                     def clasificar_texto(texto):
                         res = classifier(
                             texto,
-                            CATEGORIAS_HIPOTESIS, # Pasamos la frase completa
-                            multi_label=False,    # Compiten entre sí
-                            hypothesis_template="El problema principal descrito es {}"
+                            CATEGORIAS_LABELS, 
+                            multi_label=False, 
+                            hypothesis_template="Este reclamo de soporte técnico trata sobre: {}."
                         )
                         mejor_hipotesis = res['labels'][0]
                         mejor_score = res['scores'][0]
                         
-                        # Mapeamos la frase larga ganadora de vuelta a la etiqueta corta ("Hardware", "Software", "Otros")
-                        idx = CATEGORIAS_HIPOTESIS.index(mejor_hipotesis)
-                        categoria = CATEGORIAS_LABELS[idx]
+                        # Mapeo limpio para la tabla final
+                        if "Hardware" in mejor_hipotesis:
+                            categoria = "Hardware"
+                        elif "Software" in mejor_hipotesis:
+                            categoria = "Software"
+                        else:
+                            categoria = "Otros"
                             
                         return categoria, mejor_score
 
@@ -110,18 +111,19 @@ if uploaded_file is not None:
             df_clasificado = st.session_state['df_clasificado']
             total_antes = len(df_clasificado)
 
-            # 1. Filtro de calidad
+            # 1. Filtro de calidad (elimina descripciones basura por baja confianza)
             es_corta = df_clasificado['Longitud'] < LONGITUD_CORTA
             pasa_corta = es_corta & (df_clasificado['Confianza'] >= UMBRAL_CORTO)
             pasa_normal = ~es_corta & (df_clasificado['Confianza'] >= UMBRAL_CONFIANZA)
             df_filtrado = df_clasificado[pasa_corta | pasa_normal].copy()
 
             # 2. ELIMINACIÓN ESTRICTA CON PANDAS
+            # Conservamos únicamente Hardware y Software. Lo que caiga en "Otros" desaparece.
             df_filtrado = df_filtrado[df_filtrado['Area_Asignada'].isin(["Hardware", "Software"])].copy()
 
             descartados = total_antes - len(df_filtrado)
 
-            st.success(f"¡Filtrado completado! Se descartaron {descartados} registro(s) ajenos a los departamentos principales.")
+            st.success(f"¡Filtrado completado! Se descartaron {descartados} registro(s) ajenos a los departamentos principales o por baja confianza.")
             
             if not df_filtrado.empty:
                 st.dataframe(df_filtrado[['descripcion', 'Area_Asignada', 'Confianza']])
